@@ -2,6 +2,8 @@
 
 A robust, portfolio-ready application featuring a sophisticated fuzzy matching engine and a clean Tkinter graphical user interface (GUI) for data standardization.
 
+![Brand Cleaner UI Screenshot](UI_Image.png)
+
 This tool is designed to clean and standardise brand names from messy datasets (like sales reports or product catalogs) by matching them against a clean, pre-approved list of brands.
 
 ## Project Architecture
