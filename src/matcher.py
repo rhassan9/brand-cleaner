@@ -9,7 +9,7 @@ import unicodedata
 from typing import List, Tuple
 
 try:
-    from rapidfuzz import process as rf_process, fuzz as rf_fuzz
+    from rapidfuzz import fuzz as rf_fuzz
     HAVE_RAPIDFUZZ = True
 except ImportError:
     HAVE_RAPIDFUZZ = False
@@ -17,6 +17,12 @@ except ImportError:
 
 ALNUM_REGEX = re.compile(r"[^0-9A-Za-z]+")
 WORD_RE = re.compile(r"[0-9A-Za-z]+")
+
+# Typo fallback: only for names long enough that a one-letter slip is clearly
+# a typo. Short names are excluded on purpose (e.g. "Booths" must not become
+# "Boots": they are different businesses one edit apart).
+TYPO_MIN_LEN = 6
+TYPO_LONG_LEN = 10   # from this length, allow two edits instead of one
 
 def strip_accents(s: str) -> str:
     """Removes diacritics/accents from a string."""
@@ -108,6 +114,40 @@ def subseq_match_after_prefix(nv: str, nc: str, lcp: int) -> Tuple[int, int]:
             break
     return matched, segments
 
+def edit_distance(a: str, b: str, limit: int) -> int:
+    """
+    Damerau-Levenshtein (optimal string alignment) distance between a and b.
+    Stops early and returns limit + 1 once the distance must exceed limit.
+    """
+    if abs(len(a) - len(b)) > limit:
+        return limit + 1
+    prev2: List[int] = []
+    prev = list(range(len(b) + 1))
+    for i in range(1, len(a) + 1):
+        cur = [i] + [0] * len(b)
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                cur[j] = min(cur[j], prev2[j - 2] + 1)
+        if min(cur) > limit:
+            return limit + 1
+        prev2, prev = prev, cur
+    return prev[-1]
+
+
+def is_typo_of(nv: str, nc: str) -> bool:
+    """
+    True when normalized value nv looks like a misspelling of normalized candidate nc:
+    same first letter, candidate long enough, and within 1 edit (2 for long names).
+    Catches doubled/dropped letters and swaps, e.g. 'addidas' -> 'adidas'.
+    """
+    if len(nc) < TYPO_MIN_LEN or not nv or nv[0] != nc[0]:
+        return False
+    limit = 2 if len(nc) >= TYPO_LONG_LEN else 1
+    return edit_distance(nv, nc, limit) <= limit
+
+
 def ratio(a: str, b: str) -> float:
     """Return a 0..100 similarity ratio on strings."""
     if HAVE_RAPIDFUZZ:
@@ -134,6 +174,12 @@ def candidate_rank_and_score(value: str, candidate: str) -> Tuple[Tuple[int, int
     prefix_relation = nv.startswith(nc) or nc.startswith(nv)
     
     if not (strong_v & strong_c) and not prefix_relation and span_idx == -1:
+        # Hard filter: no shared word, prefix or phrase. The only exception is a
+        # near-identical spelling, which ranks below every genuine candidate
+        # (lcp 0) and is scored by plain string similarity.
+        if is_typo_of(nv, nc):
+            r = ratio(nv, nc)
+            return (0, 0, 0.0, 0, r), r
         return (0, 0, 0.0, 0, 0.0), 0.0
 
     lcp_std = common_prefix_len(nv, nc)

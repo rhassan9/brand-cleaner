@@ -56,3 +56,33 @@ def test_best_match():
     # No match
     match, score = best_match("Reebok", clean_list)
     assert score == 0.0
+
+
+def test_edit_distance():
+    from src.matcher import edit_distance
+    assert edit_distance("adidas", "adidas", 1) == 0
+    assert edit_distance("addidas", "adidas", 1) == 1   # doubled letter
+    assert edit_distance("adiads", "adidas", 1) == 1    # swapped letters
+    assert edit_distance("reebok", "adidas", 1) == 2    # stops early above the limit
+
+
+def test_typo_fallback_matches_misspellings():
+    clean_list = ["Adidas", "Nike", "Puma", "Sainsburys"]
+    match, score = best_match("Addidas", clean_list)
+    assert match == "Adidas"
+    assert score >= 80.0
+
+    match, score = best_match("Sainsbuyrs", clean_list)  # swap in a long name
+    assert match == "Sainsburys"
+    assert score >= 80.0
+
+
+def test_typo_fallback_leaves_short_lookalikes_alone():
+    # "Booths" and "Boots" are different businesses one edit apart.
+    match, score = best_match("Booths", ["Boots", "Nike"])
+    assert score == 0.0
+
+
+def test_genuine_prefix_match_beats_typo_candidate():
+    match, _ = best_match("Adidas Originals", ["Adidas", "Adidis"])
+    assert match == "Adidas"
