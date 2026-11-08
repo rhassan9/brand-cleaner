@@ -1,100 +1,114 @@
 # Brand Cleaner
 
-A robust, portfolio-ready application featuring a sophisticated fuzzy matching engine and a clean Tkinter graphical user interface (GUI) for data standardization.
+A desktop tool that standardizes messy brand names in supplier catalogs (Excel or CSV) against an approved master list, so the same brand isn't stored under six different spellings.
 
-![Brand Cleaner UI Screenshot](UI_Image.png)
+![Before and after: six spellings of Adidas reduced to one master record](docs/brand-cleaner-overview.png)
 
-This tool is designed to clean and standardise brand names from messy datasets (like sales reports or product catalogs) by matching them against a clean, pre-approved list of brands.
+Built as freelance work for a client that combines gift card catalogs from several suppliers. Each supplier writes the same brand differently: `Adidas GB`, `ADIDAS UK LTD`, `adidas-uk`, `Lush E-Giftcard`, `Great British Pub UK eGift Voucher`. Every variant became a separate entity, which broke joins and reporting, so the names were being fixed by hand in Excel.
 
-## Project Architecture
+## Results
 
-The codebase has been structured with clear separation of concerns, demonstrating software engineering best practices:
+Measured on the client's four real supplier catalogs:
 
-- **`src/matcher.py`**: Contains the core algorithmic engine for fuzzy string matching, tokenization, and complex string similarity scoring.
-- **`src/processor.py`**: Handles Pandas DataFrame manipulation, file I/O operations (Excel/CSV), and applies the matching logic to the datasets.
-- **`src/gui.py`**: Contains the Tkinter GUI implementation, delegating data operations to the processor module.
-- **`main.py`**: The clean entry point to start the application.
-- **`tests/`**: Unit tests verifying the string matching algorithms and data processing functions.
+| | |
+|---|---|
+| Unique brand names across 4 catalogs | **787** |
+| Matched to the master list at the default 80% threshold | **766 (97%)** |
+| Matched at a strict 100% threshold (one catalog) | **92 of 101 (91%)** |
 
-## Features
-- Add new clean brands to your Clean Brand file (deduplicated, case-insensitive).
-- Clean any file where the first column is the brand column:
-  - Removes trailing `uk` (case-insensitive) from brand names.
-  - Fuzzy-matches against your Clean Brand list and replaces when similarity meets your threshold.
-  - Keeps original brand column optionally.
-  - Adds a `Group code` column using `tuck_<alphanumeric brand>`.
-- Adjustable similarity threshold (0–100). Default is 80.
-- Works with Excel (`.xlsx`, `.xls`, `.xlsm`, `.xlsb`) and CSV (`.csv`, `.txt`).
-- Saves cleaned output as an Excel workbook (`.xlsx`).
+Brands below the threshold are never changed silently. They stay as they were, and the log lists each one with its best suggestion and score, so a person makes the final call.
 
-## Installation
+## Example
 
-1. Create a virtual environment (recommended):
-   ```bash
-   python -m venv .venv
-   # Windows:
-   .venv\Scripts\activate
-   # macOS/Linux:
-   source .venv/bin/activate
-   ```
+Running the tool on the synthetic files in [`samples/`](samples/) (default threshold, 80%):
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+| Original brand | Cleaned brand | Why |
+|---|---|---|
+| `adidas-uk` | `Adidas` | Trailing "UK" stripped, then exact match |
+| `ADIDAS UK LTD` | `Adidas` | Starts with the master name; extra words ignored |
+| `Adidas (U.K.)` | `Adidas` | Punctuation ignored, then prefix match |
+| `Addidas` | `Adidas` | Typo fallback: one letter off a 6+ letter name |
+| `Great British Pub UK eGift Voucher` | `Great British Pub` | Master name found as a phrase at the start |
+| `Global Hotel Card Powered by Expedia eGift` | `Global Hotel Card` | Same |
+| `Sainsbuyrs` | `Sainsburys` | Typo fallback: two swapped letters |
+| `Booths` | `Booths` (unchanged) | One letter from `Boots`, but they're different businesses, so it's left alone |
+| `Marks and Spencer E-Gift Voucher` | unchanged, flagged | Known limit: "and" vs "&" isn't normalized yet |
 
-3. Run the app:
-   ```bash
-   python main.py
-   ```
+Each row also gets a `Group code` (`tuck_<brand>`, lowercase letters and digits only) that the client uses as a join key.
 
-## Running Tests
+## How the matching works
 
-This project includes a suite of unit tests written with `pytest` to ensure the reliability of the matching algorithms.
+Generic fuzzy matching (a single similarity ratio) fails on this data in both directions. `Great British Pub UK eGift Voucher` scores low against `Great British Pub` because of all the extra words, while `Boots` and `Booths` score high despite being different businesses. So the matcher combines several signals, checked in order of how much they can be trusted:
 
-```bash
-# Ensure you have activated the virtual environment and installed requirements
-pytest tests/
+```mermaid
+flowchart TD
+    A["Raw brand name"] --> B["Strip a trailing UK<br/>(' UK', '-uk', '_UK')"]
+    B --> C{"Same letters and digits as a<br/>master name, ignoring case and accents?"}
+    C -- yes --> M["Use that master name (score 100)"]
+    C -- no --> D{"Hard filter: shares a 3+ letter word,<br/>a prefix, or a whole phrase<br/>with the candidate?"}
+    D -- no --> T{"Typo check: 6+ letters,<br/>same first letter,<br/>1 edit away (2 if 10+ letters)?"}
+    T -- no --> X["Candidate rejected (score 0)"]
+    T -- yes --> R
+    D -- yes --> R["Rank candidates: shared prefix length,<br/>then leading words, coverage,<br/>name length, overall similarity"]
+    R --> S["Score the best candidate,<br/>then apply a word-level boost<br/>(never lowers the score)"]
+    S --> Q{"Score ≥ threshold?"}
+    Q -- yes --> M2["Replace with master name"]
+    Q -- no --> K["Keep the original, list it in the log"]
 ```
 
-## Usage Tips
+- **Ranking puts prefixes first.** Brand names carry their identity at the start (`Adidas …`, `Currys PC World`), so candidates are compared on shared-prefix length before anything else. That makes the choice deterministic and easy to explain.
+- **Scoring** ([`candidate_rank_and_score`](src/matcher.py)) = 65% prefix coverage + 20% overall similarity + 15% character coverage, minus penalties for scattered matches and for having no shared prefix.
+- **Word boost** ([`enhanced_pair_score_words`](src/matcher.py)) catches cases where the words match but the characters don't line up, including fused words (`giftcard` ↔ `gift card`). It can only raise a score, never lower it.
+- **The typo fallback** is deliberately narrow, and it ranks below candidates that pass the hard filter. Running the four real catalogs with and without it changed **zero** results, so it only adds matches the old matcher missed.
 
-- The Clean Brand names file must have a single meaningful column of brand names. If it has multiple columns, only the first is used.
-- Empty rows in the Clean Brand names file are ignored automatically.
-- The file to be cleaned must have the brand names in its first column.
-- The app removes trailing `uk` from brand names in the file to be cleaned before matching (e.g., `Acme UK`, `Acme-uk`, `Acme_uk` → `Acme`).
-- If the best similarity score for a brand is below your chosen threshold, the brand stays as-is (after the `uk` removal step).
-- Group code is generated as `tuck_<brandname>`, where `<brandname>` is the final brand value with all non-alphanumeric characters removed and converted to lowercase.
+## Project structure
 
-## Packaging as a Desktop App (PyInstaller)
+```
+main.py              entry point
+src/matcher.py       matching: normalization, hard filter, ranking, scoring, typo check
+src/processor.py     pandas I/O, UK stripping, applying matches, group codes
+src/gui.py           Tkinter UI; cleaning runs on a worker thread so the window stays responsive
+tests/               pytest: unit tests for matcher/processor + end-to-end test on samples/
+samples/             synthetic master list and messy catalog
+```
 
-You can create a single-file executable for Windows or macOS.
+## Run it
 
-1. Install PyInstaller:
-   ```bash
-   pip install pyinstaller
-   ```
+Requires Python 3.10+.
 
-2. Build:
-   ```bash
-   pyinstaller --onefile --noconsole --name "BrandCleaner" main.py
-   ```
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+```
 
-3. Find the executable in the `dist` folder:
-   - Windows: `dist/BrandCleaner.exe`
-   - macOS: `dist/BrandCleaner`
+1. **Clean File** tab: pick the master brand list and the file to clean, set the similarity threshold, then click **Run and Save**.
+2. **Add Clean Brand** tab: add a new approved brand to the master list. Duplicates are ignored, regardless of case.
 
-4. macOS Gatekeeper note:
-   - The app may be flagged as from an unidentified developer. Right-click the app, choose “Open”, then confirm.
-   - For distribution, consider code-signing and notarization (optional).
+**Input rules:**
+- Brand names must be in the **first column** of both files. Empty rows are skipped.
+- Reads `.xlsx`, `.xlsm`, `.xls`, `.xlsb`, `.csv` and `.txt`.
+- Always saves `.xlsx`. All other columns are kept as they were.
 
-## Troubleshooting
+![The app after cleaning a catalog: 92 of 101 brands matched, with the unmatched ones listed with their best suggestion](docs/ui-screenshot.png)
 
-- If `.xlsx` files fail to load or save, ensure `openpyxl` is installed (it is listed in `requirements.txt`).
-- If fuzzy matching seems slow or inaccurate, make sure `rapidfuzz` installed correctly. The app will fall back to Python’s `difflib` if `rapidfuzz` is unavailable.
-- If your files are very large, the first run may take a bit; the UI stays responsive while processing.
+## Tests
 
-## Notes
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
 
-- The app replaces the first column values with matched Clean Brand names only when the similarity score meets your threshold; otherwise it keeps the cleaned original.
-- Set a lower threshold (e.g., 50%) if you want more aggressive replacement.
+## Build a desktop app
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile --noconsole --name "BrandCleaner" main.py
+```
+
+The executable is written to `dist/`. On macOS, an unsigned app has to be opened once by right-clicking it and choosing **Open**.
+
+## License
+
+Shared for portfolio review only. All rights reserved.

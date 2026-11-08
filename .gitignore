@@ -154,3 +154,6 @@ Thumbs.db
 *.xlsb
 *.csv
 *.zip
+
+# ...except the synthetic demo data
+!samples/*.csv
