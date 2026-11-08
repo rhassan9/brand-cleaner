@@ -59,6 +59,7 @@ flowchart TD
 - **Ranking puts prefixes first.** Brand names carry their identity at the start (`Adidas …`, `Currys PC World`), so candidates are compared on shared-prefix length before anything else. That makes the choice deterministic and easy to explain.
 - **Scoring** ([`candidate_rank_and_score`](src/matcher.py)) = 65% prefix coverage + 20% overall similarity + 15% character coverage, minus penalties for scattered matches and for having no shared prefix.
 - **Word boost** ([`enhanced_pair_score_words`](src/matcher.py)) catches cases where the words match but the characters don't line up, including fused words (`giftcard` ↔ `gift card`). It can only raise a score, never lower it.
+- **No hard dependency on rapidfuzz.** Overall similarity uses `rapidfuzz` when it's installed. If it isn't, the matcher falls back to Python's built-in `difflib`, so the tool still runs instead of crashing on import.
 - **The typo fallback** is deliberately narrow, and it ranks below candidates that pass the hard filter. Running the four real catalogs with and without it changed **zero** results, so it only adds matches the old matcher missed.
 
 ## Project structure
