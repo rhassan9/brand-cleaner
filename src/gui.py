@@ -139,10 +139,13 @@ class BrandCleanerGUI(tk.Tk):
             self.add_clean_brand_path_var.set(path)
 
     def log(self, message: str):
-        """Appends a message to the GUI log area."""
+        """Appends a message to the GUI log area. Safe to call from a worker thread."""
+        if threading.current_thread() is not threading.main_thread():
+            # Tkinter widgets may only be touched from the main thread.
+            self.after(0, self.log, message)
+            return
         self.log_text.insert(tk.END, message + "\n")
         self.log_text.see(tk.END)
-        self.update_idletasks()
 
     def _run_and_save(self):
         clean_path = self.clean_brand_path_var.get().strip()
@@ -171,9 +174,10 @@ class BrandCleanerGUI(tk.Tk):
         if not save_path:
             return
 
+        self.progress.start(10)
+
         def worker():
             try:
-                self.progress.start(10)
                 self.log("Loading clean brand names...")
                 clean_list = load_clean_brands(clean_path)
                 self.log(f"Loaded {len(clean_list)} clean brands (after removing empties and duplicates).")
@@ -209,12 +213,13 @@ class BrandCleanerGUI(tk.Tk):
                     self.log("Brands not replaced (0): - (none)")
 
                 self.log(f"Saved cleaned file: {save_path}")
-                messagebox.showinfo("Done", f"Cleaning complete!\nSaved: {save_path}")
+                self.after(0, lambda: messagebox.showinfo("Done", f"Cleaning complete!\nSaved: {save_path}"))
             except Exception as e:
-                messagebox.showerror("Error", f"An error occurred:\n{e}")
-                self.log(f"ERROR: {e}")
+                err = str(e)
+                self.log(f"ERROR: {err}")
+                self.after(0, lambda: messagebox.showerror("Error", f"An error occurred:\n{err}"))
             finally:
-                self.progress.stop()
+                self.after(0, self.progress.stop)
 
         threading.Thread(target=worker, daemon=True).start()
 
