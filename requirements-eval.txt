@@ -1,0 +1,13 @@
+# Extra dependencies for the evaluation layer in eval/.
+# Install into a separate virtual environment (see eval/README.md).
+#
+# torch 2.2.2 is the last release with Intel macOS (x86_64) wheels, and it
+# needs numpy < 2. The other pins are versions known to work with it.
+-r requirements-dev.txt
+numpy==1.26.4
+torch==2.2.2
+transformers==4.48.3
+sentence-transformers==3.4.1
+matplotlib==3.9.4
+# Only needed for the optional LLM judge (python -m eval.run_product_eval --use-llm)
+anthropic==2.8.0

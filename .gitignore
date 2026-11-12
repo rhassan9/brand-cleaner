@@ -157,3 +157,9 @@ Thumbs.db
 
 # ...except the synthetic demo data
 !samples/*.csv
+# ...and the synthetic evaluation set
+!eval/data/*.csv
+
+# Evaluation: downloaded benchmarks, caches and private labels never go in git
+/data/
+.venv-eval/
