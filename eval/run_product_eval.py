@@ -165,10 +165,28 @@ def failure_reason(appr: Approach, i: int, outcome: str, abt_recs, buy_recs, gol
             f"gold ranked {rank}.")
 
 
-def failures_md(appr: Approach, test_rows, outcomes, abt, buy, abt_recs, buy_recs, gold, buy_col) -> str:
+def llm_failure_reason(appr: Approach, i: int, outcome: str, verdict, base_reason: str, gold_cols) -> str:
+    """Reason for approach C, where borderline rows were decided by the LLM instead of the threshold."""
+    where = f"Borderline pair (score {appr.score[i]:.4f}, threshold {appr.threshold:.4f})"
+    if verdict is None:
+        return f"LLM answer could not be parsed, so the A+B decision stood. {base_reason}"
+    if verdict:
+        # YES keeps the candidate, so a failure here means the candidate was not a gold match.
+        return f"{where}; the LLM said YES but the candidate is not a gold match."
+    if appr.cand_col[i] in gold_cols:
+        return f"{where}; the LLM said NO to the correct product."
+    return f"{where}; the LLM rightly said NO, but the correct product was not the top candidate."
+
+
+def failures_md(appr: Approach, test_rows, outcomes, abt, buy, abt_recs, buy_recs, gold, buy_col,
+                title: str = None, llm_verdicts: dict = None) -> str:
+    """
+    10 random test failures with a reason each. For approach C pass the A+B
+    approach, C's outcomes, a title and llm_verdicts {test position: True/False/None}.
+    """
     fails = [k for k, o in enumerate(outcomes) if o in (WRONG_MATCH, ABSTAIN_MISSED)]
     picked = sorted(random.Random(SEED).sample(fails, min(N_FAILURES, len(fails))))
-    lines = [f"### {appr.name}", "",
+    lines = [f"### {title or appr.name}", "",
              f"{len(fails)} failures on the test split; {len(picked)} drawn at random (seed {SEED}), "
              "not hand-picked.", ""]
     rows = []
@@ -178,8 +196,14 @@ def failures_md(appr: Approach, test_rows, outcomes, abt, buy, abt_recs, buy_rec
         gcols = [buy_col[b] for b in sorted(gold[aid])]
         gold_titles = " / ".join(buy.at[c, "name"] for c in gcols)
         pred_title = buy.at[appr.cand_col[i], "name"]
+        reason = failure_reason(appr, i, outcomes[k], abt_recs, buy_recs, gcols)
+        if llm_verdicts is not None:
+            if k in llm_verdicts:
+                reason = llm_failure_reason(appr, i, outcomes[k], llm_verdicts[k], reason, gcols)
+            else:
+                reason = "Not borderline, so not sent to the LLM. " + reason
         rows.append([outcomes[k], f"`{abt.at[i, 'name']}`", f"`{pred_title}`", f"{appr.score[i]:.4f}",
-                     f"`{gold_titles}`", failure_reason(appr, i, outcomes[k], abt_recs, buy_recs, gcols)])
+                     f"`{gold_titles}`", reason])
     lines.append(md_table(["outcome", "Abt title", "top Buy candidate", "score", "gold Buy title", "reason"], rows))
     return "\n".join(lines)
 
@@ -252,8 +276,10 @@ def main(argv=None) -> int:
         test_results[x.name] = (outcomes, m, x.threshold)
 
     llm_section = ""
+    llm_failures = None
     if args.use_llm:
-        from eval.product_llm import DEFAULT_MODEL, LLM_MARGIN, judge_pairs, select_borderline
+        from eval.product_llm import (DEFAULT_MODEL, LLM_MARGIN, apply_verdicts, judge_pairs,
+                                      select_borderline)
         model = args.llm_model or DEFAULT_MODEL
         test_scores = [AB.score[i] for i in test_rows]
         border = select_borderline(test_scores, AB.threshold, args.max_llm_calls)
@@ -261,17 +287,12 @@ def main(argv=None) -> int:
                   "abt_title": abt.at[test_rows[k], "name"],
                   "buy_title": buy.at[AB.cand_col[test_rows[k]], "name"]} for k in border]
         verdicts = judge_pairs(items, model, LLM_CACHE, args.yes)
-        preds = AB.predict(test_rows)
-        n_unparsed = 0
-        for k, it in zip(border, items):
-            v = verdicts[(str(it["abt_id"]), str(it["buy_id"]))]
-            if v is None:
-                n_unparsed += 1          # keep the A+B decision
-            else:
-                preds[k] = it["buy_id"] if v else None
+        preds, n_unparsed = apply_verdicts(AB.predict(test_rows), border, items, verdicts)
         outcomes, m = evaluate(golds_test, preds)
         cname = f"C: A+B + LLM on borderline ({model})"
         test_results[cname] = (outcomes, m, AB.threshold)
+        llm_failures = (cname, {k: verdicts[(str(it["abt_id"]), str(it["buy_id"]))]
+                                for k, it in zip(border, items)})
         llm_section = (f"\nApproach C sent {len(border)} test pairs with an A+B score within "
                        f"{LLM_MARGIN} of the A+B threshold to `{model}` (cap {args.max_llm_calls}); "
                        f"{n_unparsed} answers could not be parsed and kept the A+B decision. "
@@ -336,6 +357,11 @@ def main(argv=None) -> int:
            "Reasons are produced by code from the scores and model numbers, not written by hand.", ""]
     for x in approaches:
         fmd.append(failures_md(x, test_rows, test_results[x.name][0], abt, buy, abt_recs, buy_recs, gold, buy_col))
+        fmd.append("")
+    if llm_failures is not None:
+        cname, llm_verdicts = llm_failures
+        fmd.append(failures_md(AB, test_rows, test_results[cname][0], abt, buy, abt_recs, buy_recs, gold,
+                               buy_col, title=cname, llm_verdicts=llm_verdicts))
         fmd.append("")
     with open(os.path.join(RESULTS, "product_failures.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(fmd))

@@ -51,6 +51,24 @@ def select_borderline(scores: List[float], threshold: float, max_calls: int,
     return idx[:max_calls]
 
 
+def apply_verdicts(preds: List, border: List[int], items: List[dict],
+                   verdicts: Dict[Tuple[str, str], Optional[bool]]) -> Tuple[List, int]:
+    """
+    Replace the threshold decision with the LLM verdict for each borderline pair.
+    YES keeps the candidate, NO abstains, and an unparsed answer keeps the
+    original decision. Returns (new predictions, number of unparsed answers).
+    """
+    out = list(preds)
+    n_unparsed = 0
+    for k, it in zip(border, items):
+        v = verdicts[(str(it["abt_id"]), str(it["buy_id"]))]
+        if v is None:
+            n_unparsed += 1
+        else:
+            out[k] = it["buy_id"] if v else None
+    return out, n_unparsed
+
+
 def estimate_cost(pairs: List[Tuple[str, str]], model: str) -> Tuple[int, int, Optional[float]]:
     tin = sum(EST_PROMPT_OVERHEAD_TOKENS + (len(a) + len(b)) // 4 for a, b in pairs)
     tout = EST_OUTPUT_TOKENS * len(pairs)

@@ -193,7 +193,9 @@ What this shows:
 - Answers are cached in `results/llm_judgements.jsonl`, so the reported numbers can be reproduced without new calls.
 - Server-side refusal fallback (`fallbacks="default"`) is enabled on each call.
 
-It has not been run for this report, so there are no C numbers above.
+When C runs, `results/product_failures.md` also gets 10 random C failures, with reasons that say what the LLM answered.
+
+It has not been run against the real API for this report, so there are no C numbers above. Everything except the network call itself (the request built, key handling, the confirmation prompt, answer parsing, caching, error handling and how the answers change the metrics) is covered by [`tests/test_eval_llm.py`](../tests/test_eval_llm.py), which uses a fake client.
 
 ## Datasets and licences
 
