@@ -1,5 +1,5 @@
 """
-The optional LLM judge (approach C), tested with a fake `anthropic` module.
+The optional LLM judge (approach C), Anthropic provider, tested with a fake `anthropic` module.
 
 No network call is made and no real key is used: the fake module is put in
 sys.modules, so `import anthropic` inside judge_pairs gets it. These tests do
@@ -87,7 +87,7 @@ def test_sends_one_request_per_pair_with_the_expected_shape(monkeypatch, cache):
     monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_KEY)
     log = install_fake_anthropic(monkeypatch, answers=["YES", "NO", "Maybe"])
 
-    verdicts = judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=True)
+    verdicts = judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=True, provider="anthropic")
 
     assert verdicts == {("1", "101"): True, ("2", "202"): False, ("3", "303"): None}
     assert log["client_kwargs"] == {"api_key": FAKE_KEY}       # key comes from the env var
@@ -107,7 +107,7 @@ def test_sends_one_request_per_pair_with_the_expected_shape(monkeypatch, cache):
 def test_answers_are_cached_and_the_key_is_never_written(monkeypatch, cache):
     monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_KEY)
     install_fake_anthropic(monkeypatch, answers=["YES", "NO", "Maybe"])
-    judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=True)
+    judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=True, provider="anthropic")
 
     with open(cache, encoding="utf-8") as f:
         text = f.read()
@@ -121,11 +121,11 @@ def test_answers_are_cached_and_the_key_is_never_written(monkeypatch, cache):
 def test_second_run_uses_the_cache_and_needs_no_key(monkeypatch, cache):
     monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_KEY)
     install_fake_anthropic(monkeypatch, answers=["YES", "NO", "Maybe"])
-    first = judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=True)
+    first = judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=True, provider="anthropic")
 
     monkeypatch.delenv("ANTHROPIC_API_KEY")
     log = install_fake_anthropic(monkeypatch, error=AssertionError("must not call the API"))
-    second = judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=False)
+    second = judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=False, provider="anthropic")
     assert second == first
     assert log["requests"] == [] and log["client_kwargs"] is None
 
@@ -133,9 +133,9 @@ def test_second_run_uses_the_cache_and_needs_no_key(monkeypatch, cache):
 def test_cache_is_per_model(monkeypatch, cache):
     monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_KEY)
     install_fake_anthropic(monkeypatch, answers=["YES"])
-    judge_pairs(ITEMS[:1], "claude-opus-5-5", cache, assume_yes=True)
+    judge_pairs(ITEMS[:1], "claude-opus-5-5", cache, assume_yes=True, provider="anthropic")
     log = install_fake_anthropic(monkeypatch, answers=["NO"])
-    v = judge_pairs(ITEMS[:1], "claude-haiku-5-5", cache, assume_yes=True)
+    v = judge_pairs(ITEMS[:1], "claude-haiku-5-5", cache, assume_yes=True, provider="anthropic")
     assert v == {("1", "101"): False} and len(log["requests"]) == 1
 
 
@@ -143,7 +143,7 @@ def test_missing_key_stops_before_any_call(monkeypatch, cache):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     log = install_fake_anthropic(monkeypatch, answers=["YES"] * 3)
     with pytest.raises(SystemExit, match="ANTHROPIC_API_KEY is not set"):
-        judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=True)
+        judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=True, provider="anthropic")
     assert log["requests"] == []
 
 
@@ -152,7 +152,7 @@ def test_answering_anything_but_yes_cancels(monkeypatch, cache):
     log = install_fake_anthropic(monkeypatch, answers=["YES"] * 3)
     monkeypatch.setattr("builtins.input", lambda prompt="": "y")
     with pytest.raises(SystemExit, match="Cancelled"):
-        judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=False)
+        judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=False, provider="anthropic")
     assert log["requests"] == []
 
 
@@ -160,7 +160,7 @@ def test_typing_yes_sends_the_calls(monkeypatch, cache):
     monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_KEY)
     log = install_fake_anthropic(monkeypatch, answers=["YES"] * 3)
     monkeypatch.setattr("builtins.input", lambda prompt="": " YES ")
-    judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=False)
+    judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=False, provider="anthropic")
     assert len(log["requests"]) == 3
 
 
@@ -169,7 +169,7 @@ def test_api_error_on_first_call_stops_and_leaves_no_cache_file(monkeypatch, cac
     monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_KEY)
     install_fake_anthropic(monkeypatch, error=FakeAPIStatusError(400, "credit balance is too low"))
     with pytest.raises(SystemExit, match="API error after 0 calls: 400"):
-        judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=True)
+        judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=True, provider="anthropic")
     import os
     assert not os.path.exists(cache)
 
@@ -177,8 +177,8 @@ def test_api_error_on_first_call_stops_and_leaves_no_cache_file(monkeypatch, cac
 def test_connection_error_is_reported(monkeypatch, cache):
     monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_KEY)
     install_fake_anthropic(monkeypatch, error=FakeAPIConnectionError())
-    with pytest.raises(SystemExit, match="Network error after 0 calls"):
-        judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=True)
+    with pytest.raises(SystemExit, match="API error after 0 calls: network error"):
+        judge_pairs(ITEMS, "claude-opus-5-5", cache, assume_yes=True, provider="anthropic")
 
 
 def test_apply_verdicts_changes_only_borderline_rows():
@@ -202,3 +202,33 @@ def test_llm_verdicts_flow_into_metrics_hand_computed():
     _, after = evaluate(golds, out)           # 3 correct, 0 wrong, 1 missed
     assert (before["precision"], before["recall"]) == (2 / 3, 2 / 4)
     assert (after["precision"], after["recall"]) == (1.0, 3 / 4)
+
+
+def test_cache_covers_only_when_every_pair_is_cached(tmp_path):
+    from eval.product_llm import cache_covers
+    path = str(tmp_path / "c.jsonl")
+    assert not cache_covers(ITEMS, "m", path)                      # no file
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(json.dumps({"model": "m", "abt_id": "1", "buy_id": "101", "same": True}) + "\n")
+    assert not cache_covers(ITEMS, "m", path)                      # 1 of 3
+    assert cache_covers(ITEMS[:1], "m", path)
+    assert not cache_covers(ITEMS[:1], "other-model", path)        # cache is per model
+    assert not cache_covers([], "m", path)
+
+
+def test_verdict_effects_hand_computed():
+    from eval.product_llm import verdict_effects
+    golds = [{101}, {202}, {999}, {404}, {505}]
+    before = [101, None, 303, 404, None]       # correct, missed, wrong, correct, missed
+    border = [1, 2, 3, 4]
+    items = [{"abt_id": 2, "buy_id": 202}, {"abt_id": 3, "buy_id": 303},
+             {"abt_id": 4, "buy_id": 404}, {"abt_id": 5, "buy_id": 606}]
+    verdicts = {("2", "202"): True,    # missed -> correct (LLM right)
+                ("3", "303"): False,   # wrong -> abstain (LLM right)
+                ("4", "404"): False,   # correct -> missed (LLM wrong)
+                ("5", "606"): None}    # unparsed, kept
+    after, _ = apply_verdicts(before, border, items, verdicts)
+    e = verdict_effects(golds, before, after, border, items, verdicts)
+    assert e == {"sent": 4, "answered": 3, "llm_correct": 2, "yes": 1, "no": 2, "changed": 3,
+                 "missed_to_correct": 1, "wrong_to_abstain": 1, "correct_to_missed": 1,
+                 "abstain_to_wrong": 0}

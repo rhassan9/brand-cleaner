@@ -60,6 +60,7 @@ pytest
 - `make_synthetic_brands --check` confirms the committed synthetic CSVs are exactly what the seeded generator produces.
 - `run_brand_eval` takes a few seconds. `run_product_eval` takes about a minute on a 2017 laptop CPU, plus the one-off model download. Embeddings are cached under `data/public/`.
 - `download_abt_buy` checks the zip against a pinned SHA-256 and the published record counts. Everything under `data/` is gitignored.
+- `run_product_eval` reports approach C (the LLM judge) from the committed answers in `results/llm_judgements.jsonl`, so it needs no API key and makes no calls. To query the LLM again, set `GEMINI_API_KEY` and add `--use-llm`. Only pairs missing from the cache are sent; delete the cache file to start fresh.
 - Fixed seeds everywhere (`42`). Two consecutive runs of `run_product_eval` produced byte-identical `product_metrics.md`.
 
 ## Part 1: brand matcher on the synthetic set
@@ -153,7 +154,10 @@ This writes the master list and `brand_eval_private_TO_LABEL.csv` with empty `tr
 | A: rules | 48.1250 | 757 | 645 | 68 | 44 | 0.9046 (645/713) | 0.8520 (645/757) | 0.8776 |
 | B: embeddings | 0.5305 | 757 | 542 | 213 | 2 | 0.7179 (542/755) | 0.7160 (542/757) | 0.7169 |
 | A+B: embeddings + model number | 0.5995 | 757 | 676 | 72 | 9 | 0.9037 (676/748) | 0.8930 (676/757) | 0.8983 |
+| C: A+B + LLM on borderline (gemini-3.5-flash-lite) | 0.5995 | 757 | 678 | 65 | 14 | 0.9125 (678/743) | 0.8956 (678/757) | 0.9040 |
 <!-- /results -->
+
+C is A+B with the 21 borderline decisions handed to an LLM; see [Approach C](#approach-c-llm-on-borderline-pairs) below.
 
 Retrieval quality before any threshold:
 
@@ -173,29 +177,66 @@ What this shows:
 - **Model numbers carry most of the signal.** 971 of 1081 Abt titles and 890 of 1092 Buy titles contain a letter-and-digit code. Adding the code check to the embedding score raises top-1 accuracy from 0.7173 to 0.8983 and F1 from 0.7169 to 0.8983.
 - **A+B beats the rules on recall at about the same precision** (0.8930 vs 0.8520 recall, 0.9037 vs 0.9046 precision), giving the best F1 of the three: 0.8983 vs 0.8776.
 - **The rules miss codes written without both letters and digits.** Garmin's `010-10723-03` and Sony's `LCS-CSQ/B` are not counted as codes, so those products fall back to wording.
+- **An LLM on the borderline pairs adds a little on top** (C: F1 0.9040, precision 0.9125). See [Approach C](#approach-c-llm-on-borderline-pairs).
 
 ### Failure examples
 
-[`results/product_failures.md`](results/product_failures.md) lists 10 test failures per approach, drawn at random with seed 42 rather than picked, each with a one-line reason generated from the scores and model numbers. The recurring patterns:
+[`results/product_failures.md`](results/product_failures.md) lists 10 test failures per approach (A, B, A+B and C), drawn at random with seed 42 rather than picked, each with a one-line reason generated from the scores and model numbers. The recurring patterns:
 
 - a different model in the same product line (B mostly)
 - an accessory or a multi-pack that carries the product's code (`PG-40-BK-TWIN` for `PG40BK`)
 - a title with no extractable code, so generic wording decides (`LG ... Over the Range Microwave`)
 - the correct product retrieved but scored just below the threshold
 
-### Approach C: LLM on borderline pairs (optional, not run)
+### Approach C: LLM on borderline pairs
 
-`python -m eval.run_product_eval --use-llm` sends only the test pairs whose A+B score is within 0.05 of the A+B threshold to Claude (`claude-opus-5-5` by default, `--llm-model` to change), asking whether the two titles are the same product. The LLM's answer replaces the threshold decision for those pairs only.
+A+B is least sure about pairs whose score sits close to its threshold. Approach C sends only those pairs (the 21 test pairs within 0.05 of the A+B threshold) to an LLM and asks whether the two titles are the same product. The LLM's YES or NO replaces the threshold decision for those pairs. Every other pair keeps the A+B decision.
 
-- Calls are capped (`--max-llm-calls`, default 150).
-- The script prints the number of calls and an estimated cost, then asks you to type `yes` before sending anything.
-- The key is read from the `ANTHROPIC_API_KEY` environment variable only.
-- Answers are cached in `results/llm_judgements.jsonl`, so the reported numbers can be reproduced without new calls.
-- Server-side refusal fallback (`fallbacks="default"`) is enabled on each call.
+- **Model:** `gemini-3.5-flash-lite` through Google's Gemini Interactions API, on the free tier (no charge). Settings: `thinking_level: low`, `seed: 42`, `store: false` (Google does not keep the interaction).
+- **Settings fixed before the run:** the 0.05 margin, the prompt and the YES/NO parsing were all in the code before any answer came back, and none were changed afterwards.
+- **Run date:** 2026-11-12. All 21 calls completed. They used 2187 input, 19 output and 5188 thinking tokens.
 
-When C runs, `results/product_failures.md` also gets 10 random C failures, with reasons that say what the LLM answered.
+<!-- results:product_metrics.md -->
+| borderline pairs | count |
+|---|---|
+| sent to the LLM | 21 |
+| answered YES / NO | 10 / 11 |
+| answer could not be parsed (A+B decision kept) | 0 |
+| LLM answer agrees with the gold label of the candidate | 19 of 21 |
+| decisions changed versus A+B | 9 |
+| missed match turned into a correct match | 2 |
+| wrong match removed (now an abstain) | 7 |
+| correct match removed (now missed) | 0 |
+| abstain turned into a wrong match | 0 |
+| C wrong matches left outside the borderline band (never sent) | 64 of 65 |
+<!-- /results -->
 
-It has not been run against the real API for this report, so there are no C numbers above. Everything except the network call itself (the request built, key handling, the confirmation prompt, answer parsing, caching, error handling and how the answers change the metrics) is covered by [`tests/test_eval_llm.py`](../tests/test_eval_llm.py), which uses a fake client.
+What this shows:
+
+- **On the pairs it saw, the LLM was mostly right and did no harm.** It agreed with the gold label on 19 of 21 pairs. It changed 9 decisions: 7 wrong matches removed and 2 missed matches recovered. It broke none. Its 2 wrong answers did not change any outcome.
+- **The overall gain is small, because only 21 of 757 products are borderline.** Test F1 went from 0.8983 to 0.9040, and precision from 0.9037 to 0.9125. 64 of the remaining 65 wrong matches score more than 0.05 above the threshold, so they never reach the LLM. All 10 randomly drawn C failures in [`results/product_failures.md`](results/product_failures.md) are of that kind.
+- **Cost:** about 7,400 tokens in total on a free tier.
+
+How the run is controlled:
+
+- **Opt-in:** API calls happen only with `--use-llm`.
+- **Capped:** `--max-llm-calls`, default 150. The cap was not reached.
+- **Confirmed:** the script prints the call count and a cost estimate, then waits for you to type `yes`.
+- **Key:** read from `GEMINI_API_KEY` only, sent as a request header, and never written to disk.
+- **Cached:** answers are saved in `results/llm_judgements.jsonl` (including the model name the API reported for each answer), so the numbers above reproduce without a key or new calls.
+- **Retries:** overload (503) and rate-limit (429) errors are retried with backoff.
+- **Pacing:** calls are 4 seconds apart, to stay inside free-tier limits.
+
+Anthropic's API is also supported (`--llm-provider anthropic`, key from `ANTHROPIC_API_KEY`).
+
+Both providers are covered by tests with fake clients, [`tests/test_eval_llm.py`](../tests/test_eval_llm.py) and [`tests/test_eval_llm_gemini.py`](../tests/test_eval_llm_gemini.py), so `pytest` never makes a network call.
+
+How the model was chosen:
+- An attempt with Claude was rejected before any answer because the account had no credit.
+- `gemini-3.8-flash` and `gemini-3.7-flash` returned "high demand" (503) errors.
+- So the run switched to `gemini-3.5-flash-lite`.
+
+The model was picked for availability only. No model's answers were seen before choosing.
 
 ## Datasets and licences
 
@@ -213,4 +254,5 @@ It has not been run against the real API for this report, so there are no C numb
 - **Abt-Buy gold labels are not perfect.** Some "wrong" matches look defensible on inspection, such as a twin pack of the same ink cartridge, but they are counted as wrong because the benchmark says so.
 - **Top-1 framing.** Each Abt product gets at most one Buy match, but 16 Abt products have more than one gold match, and any of them counts as correct. Results are not comparable to papers that score pre-built candidate pairs (for example the DeepMatcher splits).
 - **Titles only.** Descriptions, manufacturer and price are ignored for every approach, so the comparison is fair, but neither approach is as strong as it could be.
-- **No confidence intervals.** The test split has 757 products. Differences of about a point between approaches should not be over-read.
+- **No confidence intervals.** The test split has 757 products. Differences of about a point between approaches should not be over-read. This applies to C in particular: its gain over A+B comes from 9 changed decisions.
+- **LLM answers are not guaranteed to repeat.** The reported C numbers come from the cached answers of one run of `gemini-3.5-flash-lite` (the model name the API reported is recorded with each answer). A fresh run, or a newer model version behind the same name, may answer some pairs differently. Google's free-tier terms may let it use prompts to improve its products; only public benchmark titles were sent.

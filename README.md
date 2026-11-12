@@ -86,7 +86,10 @@ The same matching ideas were also tested on the public **Abt-Buy** product match
 | A: rules | 48.1250 | 757 | 645 | 68 | 44 | 0.9046 (645/713) | 0.8520 (645/757) | 0.8776 |
 | B: embeddings | 0.5305 | 757 | 542 | 213 | 2 | 0.7179 (542/755) | 0.7160 (542/757) | 0.7169 |
 | A+B: embeddings + model number | 0.5995 | 757 | 676 | 72 | 9 | 0.9037 (676/748) | 0.8930 (676/757) | 0.8983 |
+| C: A+B + LLM on borderline (gemini-3.5-flash-lite) | 0.5995 | 757 | 678 | 65 | 14 | 0.9125 (678/743) | 0.8956 (678/757) | 0.9040 |
 <!-- /results -->
+
+Model numbers are the strongest signal: adding them to the embedding score lifts F1 from 0.7169 to 0.8983. In C, an LLM (Gemini, free tier) re-judges only the 21 test pairs closest to the A+B threshold. It agreed with the gold label on 19 of 21, removed 7 wrong matches, recovered 2 missed ones and broke none. That is a small but real gain, limited by how few pairs are borderline.
 
 Method, reproduction commands, licences and limitations are in [eval/README.md](eval/README.md).
 

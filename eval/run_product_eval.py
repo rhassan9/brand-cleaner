@@ -18,7 +18,8 @@ Usage:
     python -m eval.download_abt_buy
     python -m eval.run_product_eval                  # A, B, A+B
     python -m eval.run_product_eval --validation-only
-    python -m eval.run_product_eval --use-llm [--max-llm-calls 150] [--llm-model claude-opus-5-5]
+    python -m eval.run_product_eval --use-llm [--llm-provider gemini|anthropic] [--llm-model ID]
+                                    [--max-llm-calls 150]
 """
 import argparse
 import os
@@ -216,7 +217,9 @@ def main(argv=None) -> int:
                     help="tune and print validation results only; do not touch the test split")
     ap.add_argument("--use-llm", action="store_true", help="run approach C (costs money, asks first)")
     ap.add_argument("--max-llm-calls", type=int, default=150)
-    ap.add_argument("--llm-model", default=None)
+    ap.add_argument("--llm-provider", default=None, choices=["gemini", "anthropic"],
+                    help="LLM provider for approach C (default gemini)")
+    ap.add_argument("--llm-model", default=None, help="model id (default depends on the provider)")
     ap.add_argument("--yes", action="store_true", help="do not ask before sending LLM calls")
     args = ap.parse_args(argv)
 
@@ -277,26 +280,54 @@ def main(argv=None) -> int:
 
     llm_section = ""
     llm_failures = None
-    if args.use_llm:
-        from eval.product_llm import (DEFAULT_MODEL, LLM_MARGIN, apply_verdicts, judge_pairs,
-                                      select_borderline)
-        model = args.llm_model or DEFAULT_MODEL
-        test_scores = [AB.score[i] for i in test_rows]
-        border = select_borderline(test_scores, AB.threshold, args.max_llm_calls)
-        items = [{"abt_id": int(abt.at[test_rows[k], "id"]), "buy_id": AB.cand[test_rows[k]],
-                  "abt_title": abt.at[test_rows[k], "name"],
-                  "buy_title": buy.at[AB.cand_col[test_rows[k]], "name"]} for k in border]
-        verdicts = judge_pairs(items, model, LLM_CACHE, args.yes)
-        preds, n_unparsed = apply_verdicts(AB.predict(test_rows), border, items, verdicts)
+    from eval.product_llm import (DEFAULT_PROVIDER, LLM_MARGIN, PROVIDERS, apply_verdicts, cache_covers,
+                                  judge_pairs, select_borderline, verdict_effects)
+    provider = args.llm_provider or DEFAULT_PROVIDER
+    model = args.llm_model or PROVIDERS[provider]["default_model"]
+    test_scores = [AB.score[i] for i in test_rows]
+    border = select_borderline(test_scores, AB.threshold, args.max_llm_calls)
+    items = [{"abt_id": int(abt.at[test_rows[k], "id"]), "buy_id": AB.cand[test_rows[k]],
+              "abt_title": abt.at[test_rows[k], "name"],
+              "buy_title": buy.at[AB.cand_col[test_rows[k]], "name"]} for k in border]
+    # Approach C runs when asked (--use-llm, may call the API) or when every
+    # borderline pair already has a cached answer (no calls, no key needed).
+    from_cache = not args.use_llm and cache_covers(items, model, LLM_CACHE)
+    if from_cache:
+        print(f"\nApproach C: all {len(items)} borderline answers for {model} are cached; "
+              "reporting C from the cache (no API calls).")
+    if args.use_llm or from_cache:
+        verdicts = judge_pairs(items, model, LLM_CACHE, args.yes, provider=provider)
+        ab_preds = AB.predict(test_rows)
+        preds, n_unparsed = apply_verdicts(ab_preds, border, items, verdicts)
         outcomes, m = evaluate(golds_test, preds)
         cname = f"C: A+B + LLM on borderline ({model})"
         test_results[cname] = (outcomes, m, AB.threshold)
         llm_failures = (cname, {k: verdicts[(str(it["abt_id"]), str(it["buy_id"]))]
                                 for k, it in zip(border, items)})
-        llm_section = (f"\nApproach C sent {len(border)} test pairs with an A+B score within "
-                       f"{LLM_MARGIN} of the A+B threshold to `{model}` (cap {args.max_llm_calls}); "
-                       f"{n_unparsed} answers could not be parsed and kept the A+B decision. "
-                       "Answers are cached in `eval/results/llm_judgements.jsonl`.\n")
+        e = verdict_effects(golds_test, ab_preds, preds, border, items, verdicts)
+        llm_section = "\n".join([
+            "",
+            f"Approach C sent the {e['sent']} test pairs whose A+B score is within {LLM_MARGIN} of the "
+            f"A+B threshold to `{model}` ({provider}; cap {args.max_llm_calls}). Answers are cached in "
+            "`eval/results/llm_judgements.jsonl`.",
+            "",
+            md_table(["borderline pairs", "count"], [
+                ["sent to the LLM", e["sent"]],
+                ["answered YES / NO", f"{e['yes']} / {e['no']}"],
+                ["answer could not be parsed (A+B decision kept)", n_unparsed],
+                ["LLM answer agrees with the gold label of the candidate",
+                 f"{e['llm_correct']} of {e['answered']}"],
+                ["decisions changed versus A+B", e["changed"]],
+                ["missed match turned into a correct match", e["missed_to_correct"]],
+                ["wrong match removed (now an abstain)", e["wrong_to_abstain"]],
+                ["correct match removed (now missed)", e["correct_to_missed"]],
+                ["abstain turned into a wrong match", e["abstain_to_wrong"]],
+                ["C wrong matches left outside the borderline band (never sent)",
+                 f"{sum(1 for k, o in enumerate(outcomes) if o == WRONG_MATCH and k not in set(border))} "
+                 f"of {m[WRONG_MATCH]}"],
+            ]),
+            "",
+        ])
 
     test_table = md_table(METRIC_COLS, [metric_row(n, t, m) for n, (o, m, t) in test_results.items()])
     retr_rows = []
