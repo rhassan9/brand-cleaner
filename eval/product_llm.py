@@ -103,34 +103,34 @@ def judge_pairs(items: List[dict], model: str, cache_path: str, assume_yes: bool
         import anthropic
         client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-        with open(cache_path, "a", encoding="utf-8") as out:
-            for n, it in enumerate(todo, 1):
-                prompt = PROMPT.format(a=it["abt_title"], b=it["buy_title"])
-                try:
-                    resp = client.beta.messages.create(
-                        model=model,
-                        max_tokens=MAX_TOKENS,
-                        output_config={"effort": "low"},
-                        betas=["server-side-fallback-2026-07-01"],
-                        fallbacks="default",
-                        messages=[{"role": "user", "content": prompt}],
-                    )
-                except anthropic.APIStatusError as e:
-                    raise SystemExit(f"API error after {n - 1} calls: {e.status_code} {e.message}")
-                except anthropic.APIConnectionError:
-                    raise SystemExit(f"Network error after {n - 1} calls.")
-                text = "".join(b.text for b in resp.content if b.type == "text")
-                rec = {
-                    "model": model, "abt_id": str(it["abt_id"]), "buy_id": str(it["buy_id"]),
-                    "answer_text": text.strip()[:50], "same": parse_answer(text),
-                    "stop_reason": resp.stop_reason, "served_by": resp.model,
-                    "input_tokens": resp.usage.input_tokens, "output_tokens": resp.usage.output_tokens,
-                }
+        # The cache file is opened per answer, so a failed first call leaves no file.
+        for n, it in enumerate(todo, 1):
+            prompt = PROMPT.format(a=it["abt_title"], b=it["buy_title"])
+            try:
+                resp = client.beta.messages.create(
+                    model=model,
+                    max_tokens=MAX_TOKENS,
+                    output_config={"effort": "low"},
+                    betas=["server-side-fallback-2026-07-01"],
+                    fallbacks="default",
+                    messages=[{"role": "user", "content": prompt}],
+                )
+            except anthropic.APIStatusError as e:
+                raise SystemExit(f"API error after {n - 1} calls: {e.status_code} {e.message}")
+            except anthropic.APIConnectionError:
+                raise SystemExit(f"Network error after {n - 1} calls.")
+            text = "".join(b.text for b in resp.content if b.type == "text")
+            rec = {
+                "model": model, "abt_id": str(it["abt_id"]), "buy_id": str(it["buy_id"]),
+                "answer_text": text.strip()[:50], "same": parse_answer(text),
+                "stop_reason": resp.stop_reason, "served_by": resp.model,
+                "input_tokens": resp.usage.input_tokens, "output_tokens": resp.usage.output_tokens,
+            }
+            with open(cache_path, "a", encoding="utf-8") as out:
                 out.write(json.dumps(rec) + "\n")
-                out.flush()
-                cache[(model, rec["abt_id"], rec["buy_id"])] = rec
-                if n % 25 == 0:
-                    print(f"  {n}/{len(todo)} calls done")
+            cache[(model, rec["abt_id"], rec["buy_id"])] = rec
+            if n % 25 == 0:
+                print(f"  {n}/{len(todo)} calls done")
         used_in = sum(cache[(model, str(i["abt_id"]), str(i["buy_id"]))]["input_tokens"] for i in todo)
         used_out = sum(cache[(model, str(i["abt_id"]), str(i["buy_id"]))]["output_tokens"] for i in todo)
         print(f"Actual usage for new calls: {used_in} input, {used_out} output tokens.")
