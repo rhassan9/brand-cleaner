@@ -1,0 +1,258 @@
+raw_brand,true_master,case_type
+morrisons,Morrisons,case_only
+harrods,Harrods,case_only
+sports direct,Sports Direct,case_only
+waitrose,Waitrose,case_only
+NIKE,Nike,case_only
+GREAT BRITISH PUB,Great British Pub,case_only
+PRIMARK,Primark,case_only
+BLOOM & WILD,Bloom & Wild,case_only
+moonpig,Moonpig,case_only
+PRET A MANGER,Pret A Manger,case_only
+oDEON,Odeon,case_only
+zIZZI,Zizzi,case_only
+NETFLIX,Netflix,case_only
+cINEWORLD,Cineworld,case_only
+hALFORDS,Halfords,case_only
+ASOS UK,ASOS,suffix
+Roblox (U.K.),Roblox,suffix
+Matalan Limited,Matalan,suffix
+Clarks UK,Clarks,suffix
+Lidl-uk,Lidl,suffix
+Google Play GB,Google Play,suffix
+Prezzo_UK,Prezzo,suffix
+Great British Pub GBP,Great British Pub,suffix
+Marks & Spencer (UK),Marks & Spencer,suffix
+Red Letter Days (UK),Red Letter Days,suffix
+Odeon GB,Odeon,suffix
+Office GBP,Office,suffix
+River Island UK,River Island,suffix
+Next_UK,Next,suffix
+Trainline GBP,Trainline,suffix
+Uber Eats UK,Uber Eats,suffix
+Pret A Manger GBP,Pret A Manger,suffix
+Lakeland UK Ltd,Lakeland,suffix
+John Lewis (UK),John Lewis,suffix
+JD Sports UK Ltd,JD Sports,suffix
+Spotify GBP,Spotify,suffix
+Zara Limited,Zara,suffix
+Joules (U.K.),Joules,suffix
+Fortnum & Mason (UK),Fortnum & Mason,suffix
+Just Eat_UK,Just Eat,suffix
+Starbucks GB,Starbucks,suffix
+Tui Rewards UK Ltd,Tui Rewards,suffix
+Waterstones GB,Waterstones,suffix
+Expedia UK,Expedia,suffix
+Thorntons UK Limited,Thorntons,suffix
+Liberty Limited,Liberty,suffix
+Argos UK,Argos,suffix
+Primark Ltd,Primark,suffix
+Pandora UK,Pandora,suffix
+Boden UK,Boden,suffix
+Cineworld UK Limited,Cineworld,suffix
+IKEA (UK),IKEA,suffix
+Costa Coffee Limited,Costa Coffee,suffix
+Wickes Limited,Wickes,suffix
+Asda_UK,Asda,suffix
+Selfridges.,Selfridges,punctuation
+New  Look,New Look,punctuation
+SCHUH!,Schuh,punctuation
+Currys.,Currys,punctuation
+Tui  Rewards,Tui Rewards,punctuation
+MOONPIG!,Moonpig,punctuation
+Harrods.,Harrods,punctuation
+APPLE!,Apple,punctuation
+SPOTIFY!,Spotify,punctuation
+Virgin Experience Days.,Virgin Experience Days,punctuation
+Greggs.,Greggs,punctuation
+HMV.,HMV,punctuation
+JOHN LEWIS!,John Lewis,punctuation
+Pizza Express.,Pizza Express,punctuation
+Habitat.,Habitat,punctuation
+River  Island,River Island,punctuation
+Tesco.,Tesco,punctuation
+Google_Play,Google Play,punctuation
+Mountain-Warehouse,Mountain Warehouse,punctuation
+LUSH!,Lush,punctuation
+HOBBYCRAFT!,Hobbycraft,punctuation
+Wagamama.,Wagamama,punctuation
+JDSports,JD Sports,punctuation
+CAFFE NERO!,Caffe Nero,punctuation
+FATFACE!,FatFace,punctuation
+CO-OP!,Co-op,punctuation
+PUMA!,Puma,punctuation
+Thorntons.,Thorntons,punctuation
+The_Entertainer,The Entertainer,punctuation
+JOULES!,Joules,punctuation
+National Exprress,National Express,typo
+Netfilx,Netflix,typo
+Decathlno,Decathlon,typo
+Selrridgess,Selfridges,typo
+TK Mxx,TK Maxx,typo
+The Entertainre,The Entertainer,typo
+PlayStattino,PlayStation,typo
+Tseco,Tesco,typo
+Erneest Jones,Ernest Jones,typo
+Mooonpig,Moonpig,typo
+Adidaas,Adidas,typo
+Go Outdoofs,Go Outdoors,typo
+pace NK,Space NK,typo
+Cinewolrd,Cineworld,typo
+Eursotar,Eurostar,typo
+Eeliveroo,Deliveroo,typo
+Hotles.com,Hotels.com,typo
+Tui RRewards,Tui Rewards,typo
+Aplpe,Apple,typo
+Just EEat,Just Eat,typo
+Odeoon,Odeon,typo
+Hote hCocolat,Hotel Chocolat,typo
+potify,Spotify,typo
+Ted Baler,Ted Baker,typo
+Aazon,Amazon,typo
+Blacsk,Blacks,typo
+Pizzaa Express,Pizza Express,typo
+Coo-op,Co-op,typo
+Prrimark,Primark,typo
+Johhn Lewis,John Lewis,typo
+idl,Lidl,typo
+Luah,Lush,typo
+Trainlinee,Trainline,typo
+New Lok,New Look,typo
+RRiver Isladn,River Island,typo
+FataFce,FatFace,typo
+Zizzzi,Zizzi,typo
+Hsbitat,Habitat,typo
+Xboz,Xbox,typo
+Icealnd,Iceland,typo
+Jarrods,Harrods,typo
+Ubeer Eats,Uber Eats,typo
+Boom & Wild,Bloom & Wild,typo
+Teh Body Shop,The Body Shop,typo
+Waterstons,Waterstones,typo
+Next eGift,Next,long_retail_name
+Uber Eats Digital Gift Card,Uber Eats,long_retail_name
+Nintendo eShop eGift,Nintendo eShop,long_retail_name
+Greggs E-Gift Card,Greggs,long_retail_name
+Currys Gift Card (In-Store & Online),Currys,long_retail_name
+Go Outdoors E-Giftcard,Go Outdoors,long_retail_name
+eGift Card: Steam,Steam,long_retail_name
+Clarks UK Gift Card,Clarks,long_retail_name
+eGift Card: Marks & Spencer,Marks & Spencer,long_retail_name
+Selfridges eGift Voucher,Selfridges,long_retail_name
+Ocado Gift Card - Online Only,Ocado,long_retail_name
+eGift Card: Deliveroo,Deliveroo,long_retail_name
+Mountain Warehouse UK Gift Card,Mountain Warehouse,long_retail_name
+Caffe Nero Gift Voucher,Caffe Nero,long_retail_name
+Vue E-Giftcard,Vue,long_retail_name
+Eurostar eGift Voucher,Eurostar,long_retail_name
+Tui Rewards UK eGift Voucher,Tui Rewards,long_retail_name
+Pets at Home UK Gift Card,Pets at Home,long_retail_name
+Liberty eGift,Liberty,long_retail_name
+Just Eat eCode,Just Eat,long_retail_name
+Asda Gift Card (In-Store & Online),Asda,long_retail_name
+Office Gift Voucher,Office,long_retail_name
+ASOS Gift Card - Online Only,ASOS,long_retail_name
+Boots Gift Voucher,Boots,long_retail_name
+TK Maxx Gift Card (In-Store & Online),TK Maxx,long_retail_name
+Very eGift Voucher,Very,long_retail_name
+Xbox UK eGift Voucher,Xbox,long_retail_name
+Morrisons Digital Gift Card,Morrisons,long_retail_name
+Dunelm UK Gift Card,Dunelm,long_retail_name
+Virgin Experience Days Gift Card,Virgin Experience Days,long_retail_name
+Gift Card - River Island,River Island,long_retail_name
+Space NK Digital Gift Card,Space NK,long_retail_name
+Hotels.com Gift Voucher,Hotels.com,long_retail_name
+Gift Card - Trainline,Trainline,long_retail_name
+The Entertainer e-Voucher,The Entertainer,long_retail_name
+Boden Gift Voucher,Boden,long_retail_name
+Nike E-Gift Card,Nike,long_retail_name
+Waitrose eGift Voucher,Waitrose,long_retail_name
+Starbucks Gift Card - Online Only,Starbucks,long_retail_name
+Google Play eCode,Google Play,long_retail_name
+Puma Gift Card (In-Store & Online),Puma,long_retail_name
+Joules UK eGift Voucher,Joules,long_retail_name
+Roblox e-Voucher,Roblox,long_retail_name
+Odeon Gift Card,Odeon,long_retail_name
+Decathlon Digital Gift Card,Decathlon,long_retail_name
+Marks and Spencer,Marks & Spencer,and_ampersand
+Marks and Spencer E-Gift Voucher,Marks & Spencer,and_ampersand
+Marks And Spencer UK,Marks & Spencer,and_ampersand
+H and M,H&M,and_ampersand
+B and Q,B&Q,and_ampersand
+Fortnum and Mason,Fortnum & Mason,and_ampersand
+Fortnum and Mason Gift Card,Fortnum & Mason,and_ampersand
+Bloom and Wild,Bloom & Wild,and_ampersand
+M&S,Marks & Spencer,alias
+M&S eGift Card,Marks & Spencer,alias
+PSN Card,PlayStation,alias
+John Lewis & Partners,John Lewis,alias
+Waitrose & Partners,Waitrose,alias
+Pret,Pret A Manger,alias
+Booths,,lookalike_negative
+Superdry,,lookalike_negative
+Gift Card - Icelandair,,lookalike_negative
+Costco Gift Card - Online Only,,lookalike_negative
+Tesla,,lookalike_negative
+Asics,,lookalike_negative
+Nextbase,,lookalike_negative
+Vueling,,lookalike_negative
+Clarins Gift Voucher,,lookalike_negative
+Bodum E-Giftcard,,lookalike_negative
+Blackwells e-Voucher,,lookalike_negative
+Eurostars Hotels,,lookalike_negative
+Habitat for Humanity,,lookalike_negative
+Lakeland Leather E-Giftcard,,lookalike_negative
+Prezzybox,,lookalike_negative
+Pets Corner,,lookalike_negative
+Applebee's UK Ltd,,lookalike_negative
+Officeworks,,lookalike_negative
+Office Depot,,lookalike_negative
+Nest,,lookalike_negative
+Vertbaudet,,lookalike_negative
+Boot Barn,,lookalike_negative
+Argo Tea,,lookalike_negative
+Virgin Media,,lookalike_negative
+Virgin Atlantic,,lookalike_negative
+The Perfume Shop,,lookalike_negative
+The Fragrance Shop,,lookalike_negative
+Hotel du Vin,,lookalike_negative
+Great Western Railway,,lookalike_negative
+John Lewis of Hungerford GBP,,lookalike_negative
+National Trust e-Voucher,,lookalike_negative
+Pizza Hut,,lookalike_negative
+Coffee#1,,lookalike_negative
+JD Williams,,lookalike_negative
+Mountain Hardwear,,lookalike_negative
+Go Ape,,lookalike_negative
+Gymshark Gift Card,,not_in_master
+Footasylum,,not_in_master
+Lego,,not_in_master
+Disney Store,,not_in_master
+Paperchase,,not_in_master
+Monsoon Gift Voucher,,not_in_master
+Accessorize (U.K.),,not_in_master
+Sephora,,not_in_master
+Krispy Kreme Digital Gift Card,,not_in_master
+Five Guys Gift Card - Online Only,,not_in_master
+Leon (U.K.),,not_in_master
+Itsu,,not_in_master
+Wasabi (UK),,not_in_master
+Tortilla,,not_in_master
+Honest Burgers (U.K.),,not_in_master
+Hollister,,not_in_master
+Levi's-uk,,not_in_master
+Uniqlo (U.K.),,not_in_master
+Muji,,not_in_master
+Ryanair UK Ltd,,not_in_master
+easyJet,,not_in_master
+Premier Inn Digital Gift Card,,not_in_master
+Travelodge GB,,not_in_master
+Center Parcs,,not_in_master
+Merlin Annual Pass,,not_in_master
+Clintons Cards,,not_in_master
+Funky Pigeon GBP,,not_in_master
+Toby Carvery,,not_in_master
+Frankie & Benny's Gift Card,,not_in_master
+Bella Italia Gift Voucher,,not_in_master
+Cafe Rouge (UK),,not_in_master
+Byron,,not_in_master
